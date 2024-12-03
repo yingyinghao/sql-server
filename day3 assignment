@@ -1,0 +1,138 @@
+--1.
+SELECT DISTINCT e.City
+FROM Employees e 
+JOIN Customers c ON e.City = c.City
+
+
+--2.
+--use Subquery
+SELECT DISTINCT c.City
+FROM Customers c
+WHERE c.City NOT IN(
+    SELECT e.City
+    FROM Employees e
+)
+
+--without using subquery
+SELECT DISTINCT c.City
+FROM Customers c
+LEFT JOIN Employees e ON c.City = e.City
+WHERE e.City IS NULL
+
+
+--3.
+SELECT p.ProductID,p.ProductName, SUM(od.Quantity) AS TotalOrderQuantity
+FROM Products p
+JOIN [Order Details] od ON p.ProductID = od.ProductID
+GROUP BY p.ProductID, p.ProductName
+ORDER BY TotalOrderQuantity
+
+--4.
+SELECT c.city AS CustomerCity, SUM(Quantity) AS TotalProductsOrdered
+FROM Customers c 
+INNER JOIN Orders o ON c.CustomerID = o.CustomerID
+INNER JOIN [Order Details] od ON o.OrderID = od.OrderID
+GROUP BY c.City
+ORDER BY TotalProductsOrdered
+
+--5.
+SELECT City AS CustomerCity, COUNT(CustomerID) AS CustomerCount
+FROM Customers
+GROUP BY City
+HAVING COUNT(CustomerID) >= 2
+ORDER BY CustomerCity
+
+
+--6.
+SELECT c.City AS CustomerCity, COUNT(DISTINCT od.ProductID) AS DifferentProductsOrdered
+FROM Customers c
+INNER JOIN Orders o ON c.CustomerID = o.CustomerID
+INNER JOIN [order details] od ON o.OrderID = od.OrderID
+GROUP BY c.City
+HAVING COUNT(DISTINCT od.ProductID) >= 2
+ORDER BY CustomerCity
+
+--7.
+SELECT c.CustomerID,o.orderID,c.ContactName AS Customers, c.City AS CustomerCity, o.ShipCity
+FROM Customers c
+JOIN Orders o ON c.CustomerID = o.CustomerID
+WHERE c.City <> o.ShipCity
+ORDER BY C.CustomerID
+
+
+--8.
+SELECT TOP 5 p.ProductName, AVG(od.UnitPrice) AS AveragePrice,c.City AS CustomerCity, SUM(od.Quantity) AS TotalQuantity
+FROM [Order Details] od
+JOIN Products p ON od.ProductID = p.ProductID
+JOIN Orders o ON od.OrderID = o.OrderID
+JOIN Customers c ON o.CustomerID = c.CustomerID
+WHERE c.City = (
+    SELECT TOP 1 ci.City
+    FROM [Order Details] od2
+    JOIN Orders o2 ON od2.OrderID = o2.OrderID
+    JOIN Customers ci ON O2.CustomerID = ci.CustomerID
+    WHERE od2.ProductID = od.ProductID
+    GROUP BY ci.City
+    ORDER BY SUM(od2.Quantity) DESC
+)
+GROUP BY p.ProductName, c.city
+ORDER BY TotalQuantity DESC
+
+
+--9
+--use subquery
+SELECT DISTINCT City
+FROM Employees
+WHERE City NOT IN(
+    SELECT DISTINCT c.City
+    FROM Orders o
+    JOIN Customers c ON o.CustomerID = c.CustomerID
+)
+
+--without using subquery
+SELECT DISTINCT e.City
+FROM Employees e 
+LEFT JOIN (
+    SELECT DISTINCT c.City
+    FROM Orders o 
+    JOIN Customers c ON o.CustomerID = c.CustomerID
+) AS OrderedCities
+ON e.City = OrderedCities.City
+WHERE OrderedCities.City IS NULL
+
+
+
+--10
+WITH EmployeeOrderCount AS(
+    SELECT e.City AS EmployeeCity, COUNT(o.OrderID) AS TotalOrders
+    FROM Orders o 
+    JOIN Employees e ON o.EmployeeID = e.EmployeeID
+    GROUP BY e.City
+),
+CustomerOrderQuantity AS (
+    SELECT c.City AS CustomerCity,SUM(od.Quantity) AS TotalQuantity
+    FROM [Order Details] od
+    JOIN Orders o ON od.OrderID = o.OrderID
+    JOIN Customers c ON o.CustomerID = c.CustomerID
+    GROUP BY c.City
+)
+SELECT eo.EmployeeCity
+FROM EmployeeOrderCount eo
+JOIN CustomerOrderQuantity co ON eo.EmployeeCity = co.CustomerCity
+WHERE eo.TotalOrders = (SELECT MAX(TotalOrders) FROM EmployeeOrderCount)
+AND co.TotalQuantity = (SELECT MAX(TotalQuantity) FROM CustomerOrderQuantity)
+
+
+
+
+--11
+WITH CTE AS (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY column1, column2, column3 ORDER BY id) AS RowNum
+FROM TableName
+)
+DELETE FROM TableName
+WHERE id IN (
+    SELECT id
+    FROM CTE
+    WHERE RowNum > 1
+);
