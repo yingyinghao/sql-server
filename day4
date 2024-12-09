@@ -1,0 +1,226 @@
+--basic queries: select, where, order by,join, aggregation functions, group by, having
+--advanced topics: subquery, CTE, window function, pagination, top
+--temp tables
+--table variables
+--stored procedures
+--user defined fucntions
+
+--check constraint: 
+
+SELECT * FROM Employee
+
+INSERT INTO Employee VALUES (4, 'Monster', 4000)
+INSERT INTO Employee VALUES (5, 'Monster', -4000)
+INSERT INTO Employee VALUES (1, 'Fred', 25)
+
+DELETE Employee
+
+ALTER TABLE Employee 
+ADD CONSTRAINT Chk_Age_Employee CHECK (Age BETWEEN 18 AND 65)
+
+--identity property
+
+CREATE TABLE Product(
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    ProductName VARCHAR(20) UNIQUE NOT NULL,
+    UnitPrice Money
+)
+
+INSERT INTO Product VALUES ('Green Tea', 2)
+INSERT INTO Product VALUES ('Latte', 3)
+INSERT INTO Product VALUES ('Cold Brew', 4)
+
+SELECT * FROM Product
+
+--truncate vs. delete: remove records
+--1. Delete is a DML so it will not reset the property value but TRUNCATE is DDL statement so it will reset the property value. 
+
+DELETE Product
+
+SELECT * FROM Product
+
+TRUNCATE TABLE Product
+
+--2. Delete can be used with where clause but truncate can't be. 
+
+DELETE Product
+Where id = 3
+
+--DROP: DDL statement that will delete the whole table. 
+
+
+--referential integrity: is impelemented by foreign key.
+--department table
+--employee table
+
+CREATE TABLE Department(
+    Id int PRIMARY KEY,
+    DepartmentName varchar(20),
+    Location varchar(20)
+)
+
+DROP TABLE Employee
+
+CREATE TABLE Employee(
+    Id int PRIMARY KEY,
+    EmployeeName VARCHAR(20),
+    Age int CHECK(Age BETWEEN 18 AND 65),
+    DepartmentId int FOREIGN KEY REFERENCES Department(Id) 
+)
+
+CREATE TABLE Employee(
+    Id int PRIMARY KEY,
+    EmployeeName VARCHAR(20),
+    Age int CHECK(Age BETWEEN 18 AND 65),
+    DepartmentId int FOREIGN KEY REFERENCES Department(Id) ON DELETE SET NULL
+)
+
+CREATE TABLE Employee(
+    Id int PRIMARY KEY,
+    EmployeeName VARCHAR(20),
+    Age int CHECK(Age BETWEEN 18 AND 65),
+    DepartmentId int FOREIGN KEY REFERENCES Department(Id) ON DELETE CASCADE
+)
+
+SELECT * FROM Department
+SELECT * FROM Employee
+
+INSERT INTO Employee VALUES(1, 'FRED', 34, 1)
+
+INSERT INTO Department Values(1, 'IT', 'Chicago')
+INSERT INTO Department VALUES(2, 'HR', 'Sterling')
+INSERT INTO Department VALUES(3, 'QA', 'Paris')
+
+INSERT INTO Employee VALUES(2, 'Laura', 24, 4)
+
+
+DELETE FROM Department
+WHERE Id = 1
+
+
+--Composite primary key
+--student table
+--class table
+--enrollment table
+
+CREATE TABLE Student(
+    Id int PRIMARY KEY,
+    StudentName VARCHAR(20)
+)
+
+CREATE TABLE Class(
+    Id int PRIMARY KEY,
+    ClassName VARCHAR(20)
+)
+
+CREATE TABLE Enrollment(
+    StudentId int NOT NULL,
+    ClassId int NOT NULL,
+    CONSTRAINT PK_Enrollment PRIMARY KEY (StudentId, ClassId),
+    CONSTRAINT FK_Enrollment_Student FOREIGN KEY(StudentId) REFERENCES Student(Id),
+    CONSTRAINT FK_Enrollment_Class FOREIGN KEY(ClassId) REFERENCES Class(Id),
+)
+
+CREATE TABLE Enrollment(
+    StudentId int NOT NULL FOREIGN KEY(StudentId) REFERENCES Student(Id),
+    ClassId int NOT NULL FOREIGN KEY(ClassId) REFERENCES Class(Id),
+    CONSTRAINT PK_Enrollment PRIMARY KEY (StudentId, ClassId),
+)
+
+DROP TABLE Enrollment
+
+--transaction: a group of logically related DML statements that will succeed together or fail together.
+--T-SQL
+--3 modes of transaction
+--1. Autocommit transaction: default mode
+--2. Implicit transaction
+--3. Explicit transaction: Commit or Rollback; Begin tran
+
+DROP TABLE Product
+
+CREATE TABLE Product(
+    Id INT PRIMARY KEY,
+    ProductName VARCHAR(20) UNIQUE NOT NULL,
+    UnitPrice Money,
+    Quantity int
+)
+
+Select * from Product
+
+
+INSERT INTO Product VALUES( 1, 'Green Tea', 2, 100)
+INSERT INTO Product VALUES(2, 'Latte', 3, 100)
+INSERT INTO Product VALUES(3, 'Cold Brew', 4, 100)
+
+
+BEGIN TRAN
+INSERT INTO Product VALUES(4, 'Flat White', 4, 100)
+
+SELECT * FROM Product
+
+COMMIT
+--OR
+ROLLBACK
+
+--Properties
+--ACID
+--1. Atomicity: work is atomic
+--2. Consistency: Whatever happens in the middle of the transaction, this property will never leave our database in the half completed state. 
+--3. Isolation: two transactions will be isolated from each other by locking the resource
+--4. Durability: Once the transaction is completed, the changes that are made to database will be permanent. 
+
+
+--concurrency problem: whent two or more than two users try to access the same data
+
+--1.Dirty Read: if t1 allows t2 to read the uncommitted data and then t1 rolled back; happens when isolation level is read uncomitted; is solved by updating the isolation level to read committed
+--2.Lost Update: When t1 and t2 read and update the same data but t2 finishes its work earlier even though t1 started the tran first, so the update from the t2 will be missing; happens when isolation level is read committed and is solved by updating the isolation level to repeatable read
+--3.Non-repeatable Read : when t1 will read the same data twice while t2 is updating the data; happens when isolation level is read committed and is solved by updating the isolation level to repeatable read
+--4.Phantom Read:  when t1 reads the same data twice while t2 is inserting the data; happens when isolation level is repeatable read; is solved by updating the isolation level to serializable
+
+
+--index: on disk-structure to increase the data retrieval speed -- SELECT 
+
+--Clustered Index: sort the record, only one clustered index in one table since data can only be sorted in one way; generated by the primary key
+--Non- clustered Index: will not sort the data ; store elsewhere and point to the data row; generated by unique constraint; one table can have multiple non clusterd index
+
+
+CREATE TABLE Customer(
+    Id int,
+    FullName varchar(20),
+    city VARCHAR(20),
+    Country VARCHAR(20)
+)
+
+SELECT * FROM Customer
+
+CREATE CLUSTERED INDEX Cluster_IX_Customer_Id ON Customer(Id)
+
+SELECT * FROM Customer
+
+INSERT INTO Customer VALUES(2, 'David', 'Chicago', 'USA')
+INSERT INTO Customer VALUES(1, 'Fred', 'Jersey City', 'USA')
+
+DROP TABLE Customer
+
+
+CREATE TABLE Customer(
+    Id int PRIMARY KEY,
+    FullName varchar(20),
+    city VARCHAR(20),
+    Country VARCHAR(20)
+)
+
+CREATE INDEX NonCluster_IX_Customer_City ON Customer(City)
+
+--disadvantages:
+--1. It will cost extra space.
+--2. It will slow down other DML statements including UPDATE/INSERT/DELETE
+
+--PERFORMANCE TUNING 
+
+--1.look at the execution plan/SQL profiler 
+--2.Create an index wisely. 
+--3. Avoid unnecessary joins
+--4. Avoid Select * 
+--5. Use of derived tables to avoid grouping of lot of non-aggregated fields. 
+--6. use join to replace subquery
