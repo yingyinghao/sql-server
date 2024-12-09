@@ -1,0 +1,293 @@
+--aggregation functions + group by 
+--subquery 
+--union vs. union all 
+--window function 
+--cte
+
+--temp table: a special type of table that can store data temproraily. 
+--local temp table: #
+
+CREATE TABLE #LocalTemp(
+    Num int
+)
+DECLARE @Varibale int = 1
+WHILE(@Varibale <= 10)
+BEGIN 
+INSERT INTO #LocalTemp(Num) VALUES (@Varibale)
+SET @Varibale = @Varibale + 1
+END
+
+SELECT * FROM #LocalTemp
+
+SELECT *
+FROM tempdb.sys.tables
+
+--global temp table: ##
+
+CREATE TABLE ##GlobalTemp(
+    Num int
+)
+DECLARE @Varibale2 int = 1
+WHILE(@Varibale2 <= 10)
+BEGIN 
+INSERT INTO ##GlobalTemp(Num) VALUES (@Varibale2)
+SET @Varibale2 = @Varibale2 + 1
+END
+
+SELECT * FROM ##GlobalTemp
+
+
+--table variable: a specific type of variable which is of the table type
+
+DECLARE @today DATETIME
+SELECT @today = GETDATE()
+PRINT @today
+
+DECLARE @WeekDays TABLE(
+    DayNum int,
+    DayAbb varchar(20),
+    WeekName varchar(20)
+)
+INSERT INTO @WeekDays
+VALUES
+(1, 'Mon', 'Monday'),
+(2, 'Tue', 'Tuesday'),
+(3, 'Wed', 'Wednesday')
+
+SELECT * FROM @WeekDays
+
+SELECT *
+FROM tempdb.sys.tables
+
+--temp tables vs. table variables
+--1. Both temp table and table variables are stored under tempdb database. 
+--2. Lifescope: local, global temp table; table vairable lifescope is within the current batch.
+--3. If the data is greater than 100 rows, then go with temp tables but if it is samller than 100 rows, then go with table variables. 
+--4. we do not use temp table in sp/udf but can use table varibale in sp/udf
+
+
+--view: is a virtual table that contains data from one or multiple tables. 
+
+USE NovBatch
+GO
+
+SELECT *
+FROM Employee
+
+INSERT INTO Employee VALUES (1, 'Fred', 50000), (2, 'Laura', 60000), (3, 'Amy', 70000)
+
+CREATE VIEW vwEmp
+AS
+SELECT Id, EName, Salary
+From Employee
+
+SELECT *
+FROM vwEmp
+
+
+--Stored procedure: is a preprepared sql query that we can save in our database and reuse whenever we want to. 
+
+BEGIN
+PRINT 'Hello December'
+END
+
+CREATE PROC spHello
+AS
+BEGIN
+PRINT 'Hello December'
+END
+
+EXEC spHello
+
+-- Advantages of SP
+--1. We can save the logic that will be reused over and over agian in the sp and just call the sp in future. 
+--2. Sp can be used to prevent SQL injection becuase it can take parameters. 
+
+--sql injection: Happens when some hackers inject some malicious code into our sql queries and thereby destroying our database. 
+
+SELECT ID, Name
+FROM User
+WHERE Id = 1 UNION SELECT Id, Password from USER
+
+SELECT ID, Name
+FROM User
+where ID = 1  OR 1 =1
+
+
+--input
+
+CREATE PROC spAddNumbers
+@a int,
+@b int
+AS
+BEGIN
+     PRINT @a + @b
+END
+
+EXEC spAddNumbers 10, 1
+
+
+--output
+
+CREATE PROC spGetName
+@id int,
+@EName varchar(20) OUT
+AS
+BEGIN
+    SELECT @EName = EName
+    FROM Employee
+    WHERE Id = @id
+END
+
+
+BEGIN
+DECLARE @en VARCHAR(20)
+EXEC  spGetName 2, @en OUT
+PRINT @en
+END
+
+
+--SP can also be used to return tables
+
+CREATE PROC spGetAllEmp
+AS
+BEGIN
+  SELECT *
+  FROM Employee
+END
+
+
+EXEC spGetAllEmp
+
+
+--trigger
+--DML trigger
+--DDL trigger
+--LogOn trigger
+
+--lifescope sp and views: they will be stored in your database forever as long as you do not drop them .
+
+
+--FUNCTIONS:
+--Built-in
+--User defined functions: for calculations
+
+
+Use Northwind
+
+CREATE FUNCTION GetTotalRevenue(@price money, @discount real, @quantity smallint)
+RETURNS MONEY
+AS
+BEGIN
+    DECLARE @Revenue Money
+    SET @Revenue = @price * (1 - @discount) * @quantity
+    RETURN @Revenue
+END
+
+
+SELECT UnitPrice, Discount, Quantity, dbo.GetTotalRevenue(UnitPrice, Discount, Quantity) As Revenue
+FROM [Order Details]
+
+
+CREATE FUNCTION ExpensiveProduct(@threshold money)
+RETURNS TABLE 
+AS 
+RETURN SELECT *
+            FROM Products
+            WHERE UnitPrice > @threshold
+
+SELECT *
+FROM dbo.ExpensiveProduct(10)
+
+--sp vs. udf
+--1. Usage: Use sp in DML like select, insert, update or delete; use udf in calculations
+--2. How to call: SP can be called by its name followed by EXEC keyword but udf is mainly used in select statemets.
+--3. input/output: sp may or may not have input or output but for functions, it may or may not have input but it must have output.
+--4. You can use sp to call a function but you can't use functions to call sp. 
+
+--pagination: it is a process used to divide large data sets into smaller discrete pages. 
+ --OFFSET: skip
+ --FETCH NEXT X ROWS: select
+
+SELECT CustomerID, ContactName, City
+FROM Customers
+ORDER BY CustomerID
+OFFSET 92 ROWS
+
+SELECT CustomerID, ContactName, City
+FROM Customers
+ORDER BY CustomerID
+OFFSET 10 ROWS
+FETCH NEXT 10 ROWS ONLY
+
+
+--TOP vs offset and fetch next: 
+--1.Top can be used  with or without ORDER BY but for offset and fetch next rows; they can not be used withut order by 
+--1. Top can only fetch top several values but offset and fetch next can only fetch values from the middle as well. 
+
+DECLARE @PageNum INT
+DECLARE @RowsOfPage INT
+SET @PageNum = 2
+SET @RowsOfPage = 10 
+SELECT CustomerID, ContactName, City
+FROM Customers
+ORDER BY CustomerID
+OFFSET (@PageNum -1) * @RowsOfPage ROWS
+FETCH NEXT @RowsOfPage ROWS ONLY
+
+
+DECLARE @PageNum INT
+DECLARE @RowsOfPage INT
+DECLARE @MaxTablePage FLOAT 
+SET @PageNum = 1
+SET @RowsOfPage = 10 
+SELECT @MaxTablePage = COUNT(*) FROM Customers
+SET @MaxTablePage = CEILING(@MaxTablePage/@RowsOfPage)
+WHILE (@PageNum <= @MaxTablePage)
+BEGIN
+SELECT CustomerID, ContactName, City
+FROM Customers
+ORDER BY CustomerID
+OFFSET (@PageNum -1) * @RowsOfPage ROWS
+FETCH NEXT @RowsOfPage ROWS ONLY
+SET @PageNum = @PageNum + 1
+END
+
+
+--Normalization
+--one to many relationships: add foreign key
+--many to many relationships: create a conjunction table
+--student table and class table
+
+-- student table, enrollement table,  class table 
+
+
+--Constraints
+
+USE NovBatch
+GO
+
+DROP TABLE Employee
+
+CREATE TABLE Employee(
+    Id int PRIMARY KEY,
+    EName Varchar(20) NOT NULL,
+    Age int
+)
+
+SELECT * FROM Employee
+
+INSERT INTO Employee VALUES (1, 'Sam', 45)
+INSERT INTO Employee VALUES (2, 'Fred', 55)
+
+INSERT INTO Employee VALUES(null, null, null)
+
+INSERT INTO Employee VALUES (3, 'Fiona', 25)
+
+DELETE Employee
+
+--primary key vs. unique constraint
+--1. Unique constraint can only accept one and only null value but pk can not accept any null value. 
+--2. One table can have multiple unique keys but only one primary key. 
+--3. Pk will sort the data by defualt but unique key will not. 
+--4. Pk will by default create a clustered index and unique key will create a non-clustered index. 
